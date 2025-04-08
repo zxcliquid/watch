@@ -3,7 +3,7 @@ const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, {  // Используем http-сервер
   cors: {
-    origin: "https://watch-frontend-liard.vercel.app/",
+    origin: ["http://localhost:5173", "https://watch-frontend-liard.vercel.app"],
     methods: ["GET", "POST"]
   }
 });
