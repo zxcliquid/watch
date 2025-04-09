@@ -1,58 +1,59 @@
 const express = require("express");
-const http = require("http");
-const socketIo = require("socket.io");
-
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server, {
+const http = require("http").createServer(app);
+const io = require("socket.io")(http, {
   cors: {
     origin: [
-      "https://watch-frontend-liard.vercel.app",  // Фронтенд на Vercel
-      "http://localhost:5173"  // Локальная разработка
+      "https://watch-frontend-liard.vercel.app",  // Указываем фронтенд на Vercel
+      "http://localhost:5173"  // Для локальной разработки
     ],
     methods: ["GET", "POST"]
   }
 });
 
-const rooms = {}; // Объект для хранения всех комнат
+const rooms = {};
 
-// Генерация уникального roomId
-const generateRoomId = () => {
-  return Math.random().toString(36).substring(2, 9);  // Генерация уникального roomId
-};
+io.on("connection", (socket) => {
+  console.log("Новый пользователь подключился:", socket.id);
 
-// Обработка подключения пользователей
-io.on('connection', (socket) => {
-  console.log('Новый пользователь подключился:', socket.id);
-
-  // Создание комнаты
-  socket.on('create-room', () => {
-    const roomId = generateRoomId(); // Генерация уникального ID комнаты
-    rooms[roomId] = [];  // Создаём комнату в объекте rooms
-    console.log(`Комната с ID ${roomId} создана.`);
+  socket.on("join-room", ({ roomId, username }) => {
+    if (!rooms[roomId]) rooms[roomId] = [];
+    rooms[roomId].push({ id: socket.id, username });
     
-    socket.emit('room-created', roomId);  // Отправляем обратно ID комнаты
+    socket.join(roomId);
+    io.to(roomId).emit("update-users", rooms[roomId]); // Отправляем список пользователей
   });
 
-  // Присоединение к комнате
-  socket.on('join-room', (roomId) => {
+  socket.on("leave-room", (roomId) => {
     if (rooms[roomId]) {
-      socket.join(roomId);
-      io.to(roomId).emit('user-joined', socket.id);  // Уведомляем остальных пользователей
-      console.log(`Пользователь ${socket.id} присоединился к комнате ${roomId}`);
-    } else {
-      console.log(`Комната с ID ${roomId} не существует.`);
+      rooms[roomId] = rooms[roomId].filter(user => user.id !== socket.id);
+      io.to(roomId).emit("update-users", rooms[roomId]);
+      socket.leave(roomId);
     }
   });
 
-  // Отключение пользователя
-  socket.on('disconnect', () => {
-    console.log('Пользователь отключился:', socket.id);
+  socket.on("video-action", ({ roomId, action, time }) => {
+    if (rooms[roomId]) {
+      io.to(roomId).emit("sync-video", { action, time });
+    }
+  });
+
+  socket.on("chat-message", (data) => {
+    const { roomId, message, username, timestamp } = data;
+    io.to(roomId).emit("chat-message", { username, message, timestamp });
+  });
+
+  socket.on("disconnect", () => {
+    for (let roomId in rooms) {
+      if (rooms[roomId]) {
+        rooms[roomId] = rooms[roomId].filter(user => user.id !== socket.id);
+        io.to(roomId).emit("update-users", rooms[roomId]);
+      }
+    }
   });
 });
 
-// Запуск сервера
 const port = process.env.PORT || 5001;
-server.listen(port, () => {
+http.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
