@@ -17,12 +17,17 @@ io.on("connection", (socket) => {
   console.log("Новый пользователь подключился:", socket.id);
 
   socket.on("join-room", ({ roomId, username }) => {
-    if (!rooms[roomId]) rooms[roomId] = [];
+    // Если комната не существует, создаем новую
+    if (!rooms[roomId]) {
+        rooms[roomId] = [];
+    }
+    
+    // Добавляем пользователя в комнату
     rooms[roomId].push({ id: socket.id, username });
     
     socket.join(roomId);
-    io.to(roomId).emit("update-users", rooms[roomId]); // Отправляем список пользователей
-  });
+    io.to(roomId).emit("update-users", rooms[roomId]); // Отправляем обновленный список пользователей
+});
 
   socket.on("leave-room", (roomId) => {
     if (rooms[roomId]) {
