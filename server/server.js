@@ -22,7 +22,8 @@ const io = socketIo(server, {
 });
 
 // Подключение к MongoDB (замени <username> и <password> на свои реальные данные)
-const dbURI = process.env.MONGO_URI || "mongodb://daniyar:0000@ac-jhzkjih-shard-00-00.j1faecs.mongodb.net:27017,ac-jhzkjih-shard-00-01.j1faecs.mongodb.net:27017,ac-jhzkjih-shard-00-02.j1faecs.mongodb.net:27017/?replicaSet=atlas-gxho92-shard-0&ssl=true&authSource=admin&retryWrites=true&w=majority&appName=Cluster0";
+const dbURI = process.env.MONGO_URI || "mongodb://daniyar:0000@ac-jhzkjih-shard-00-00.j1faecs.mongodb.net:27017,ac-jhzkjih-shard-00-01.j1faecs.mongodb.net:27017,ac-jhzkjih-shard-00-02.j1faecs.mongodb.net:27017/watch%20together?replicaSet=atlas-gxho92-shard-0&ssl=true&authSource=admin&retryWrites=true&w=majority&appName=Cluster0";
+
 
 mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('Подключение к MongoDB успешно!'))
