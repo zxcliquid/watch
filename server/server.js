@@ -3,7 +3,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const mongoose = require('mongoose');
 
-// Импортируем модель для комнаты
+// Создаем модель для комнаты (Room)
 const Room = require('./models/Room');
 
 // Создаем сервер
@@ -21,14 +21,11 @@ const io = socketIo(server, {
   }
 });
 
-// Подключение к MongoDB (замени <username> и <password> на свои реальные данные)
-const dbURI = process.env.MONGO_URI || "mongodb+srv://daniyar:0000@cluster0.j1faecs.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-
-
-
-mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
+// Подключаемся к базе данных MongoDB
+const dbURI = process.env.MONGO_URI || 'mongodb+srv://daniyar:0000@cluster0.j1faecs.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
+mongoose.connect(dbURI)
   .then(() => console.log('Подключение к MongoDB успешно!'))
-  .catch((error) => console.log('Ошибка подключения к MongoDB:', error));
+  .catch((err) => console.log('Ошибка подключения к MongoDB:', err));
 
 // Логика обработки подключений через сокеты
 io.on("connection", async (socket) => {
@@ -39,45 +36,47 @@ io.on("connection", async (socket) => {
     let room = await Room.findOne({ roomId });
 
     if (!room) {
-      // Если комнаты не существует, создаем новую
-      room = new Room({ roomId, users: [{ username, socketId: socket.id }], chat: [] });
-      await room.save();
+      // Если комнаты нет в базе данных, создаем новую
+      room = new Room({
+        roomId,
+        users: [{ username, socketId: socket.id }],
+        chat: []
+      });
+      await room.save();  // Сохраняем в базу данных
     } else {
       // Если комната существует, добавляем пользователя
       room.users.push({ username, socketId: socket.id });
-      await room.save();
+      await room.save();  // Обновляем данные в базе данных
     }
 
-    socket.join(roomId);
-    io.to(roomId).emit("update-users", room.users); // Отправляем список пользователей
-
-    // Отправляем историю чата
-    socket.emit("chat-history", room.chat);
+    socket.join(roomId);  // Пользователь присоединился к комнате
+    io.to(roomId).emit("update-users", room.users);  // Обновляем список пользователей
+    socket.emit("chat-history", room.chat);  // Отправляем историю чата
   });
 
-  // Выход из комнаты
-  socket.on("leave-room", async (roomId) => {
-    let room = await Room.findOne({ roomId });
-
-    if (room) {
-      room.users = room.users.filter(user => user.socketId !== socket.id);
-      await room.save();
-      io.to(roomId).emit("update-users", room.users); // Обновляем список пользователей
-    }
-
-    socket.leave(roomId);
-  });
-
-  // Отправка сообщения в чат
+  // Обработка отправки сообщений
   socket.on("chat-message", async (data) => {
     const { roomId, message, username, timestamp } = data;
     let room = await Room.findOne({ roomId });
 
     if (room) {
       room.chat.push({ username, message, timestamp });
-      await room.save();
-      io.to(roomId).emit("chat-message", { username, message, timestamp });
+      await room.save();  // Сохраняем сообщение в базе данных
+      io.to(roomId).emit("chat-message", { username, message, timestamp });  // Отправляем сообщение всем в комнате
     }
+  });
+
+  // Выход пользователя из комнаты
+  socket.on("leave-room", async (roomId) => {
+    let room = await Room.findOne({ roomId });
+
+    if (room) {
+      room.users = room.users.filter(user => user.socketId !== socket.id);
+      await room.save();  // Обновляем список пользователей в базе данных
+      io.to(roomId).emit("update-users", room.users);  // Обновляем список пользователей
+    }
+
+    socket.leave(roomId);
   });
 
   // Отключение пользователя
@@ -86,8 +85,12 @@ io.on("connection", async (socket) => {
       let room = await Room.findOne({ roomId });
       if (room) {
         room.users = room.users.filter(user => user.socketId !== socket.id);
-        await room.save();
-        io.to(roomId).emit("update-users", room.users);
+        if (room.users.length === 0) {
+          await Room.deleteOne({ roomId });  // Удаляем комнату, если в ней больше нет пользователей
+        } else {
+          await room.save();  // Сохраняем изменения в базе данных
+        }
+        io.to(roomId).emit("update-users", room.users);  // Обновляем список пользователей
       }
     }
   });
