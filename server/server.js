@@ -4,7 +4,7 @@ const socketIo = require('socket.io');
 const mongoose = require('mongoose');
 
 // Импортируем модель для комнаты
-const Room = require('../client/src/models/Room');
+const Room = require('./models/Room');
 
 // Создаем сервер
 const app = express();
