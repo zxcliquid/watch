@@ -25,7 +25,6 @@ const io = socketIo(server, {
 const dbURI = process.env.MONGO_URI || "mongodb+srv://daniyar:0000@cluster0.j1faecs.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
 
-
 mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('Подключение к MongoDB успешно!'))
   .catch((error) => console.log('Ошибка подключения к MongoDB:', error));
@@ -98,4 +97,3 @@ const port = process.env.PORT || 5001;
 server.listen(port, () => {
   console.log(`Сервер работает на порту ${port}`);
 });
-
