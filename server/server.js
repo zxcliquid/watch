@@ -2,35 +2,27 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const mongoose = require('mongoose');
-
-// Импортируем модель для комнаты
 const Room = require('./models/Room');
 
-// Создаем сервер
 const app = express();
 const server = http.createServer(app);
-
-// Создаем подключение для Socket.io
 const io = socketIo(server, {
   cors: {
     origin: [
-      "https://watch-frontend-liard.vercel.app",  // Указываем фронтенд на Vercel
-      "http://localhost:5173"  // Для локальной разработки
+      "https://watch-frontend-liard.vercel.app",
+      "http://localhost:5173"
     ],
     methods: ["GET", "POST"]
   }
 });
 
-// Подключение к MongoDB (замени <username> и <password> на свои реальные данные)
+// Подключаемся к базе данных MongoDB
 const dbURI = process.env.MONGO_URI || "mongodb+srv://daniyar:0000@cluster0.j1faecs.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-
-
-
 mongoose.connect(dbURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('Подключение к MongoDB успешно!'))
   .catch((error) => console.log('Ошибка подключения к MongoDB:', error));
 
-// Логика обработки подключений через сокеты
+// Обработка подключений через сокеты
 io.on("connection", async (socket) => {
   console.log("Новый пользователь подключился:", socket.id);
 
@@ -39,20 +31,17 @@ io.on("connection", async (socket) => {
     let room = await Room.findOne({ roomId });
 
     if (!room) {
-      // Если комнаты не существует, создаем новую
       room = new Room({ roomId, users: [{ username, socketId: socket.id }], chat: [] });
       await room.save();
     } else {
-      // Если комната существует, добавляем пользователя
       room.users.push({ username, socketId: socket.id });
       await room.save();
     }
 
     socket.join(roomId);
-    io.to(roomId).emit("update-users", room.users); // Отправляем список пользователей
-
-    // Отправляем историю чата
-    socket.emit("chat-history", room.chat);
+    io.to(roomId).emit("update-users", room.users);  // Обновляем список пользователей
+    socket.emit("chat-history", room.chat);  // Отправляем историю чата
+    socket.emit("video-time", room.videoTime);  // Отправляем время видео при подключении
   });
 
   // Выход из комнаты
@@ -62,13 +51,13 @@ io.on("connection", async (socket) => {
     if (room) {
       room.users = room.users.filter(user => user.socketId !== socket.id);
       await room.save();
-      io.to(roomId).emit("update-users", room.users); // Обновляем список пользователей
+      io.to(roomId).emit("update-users", room.users);
     }
 
     socket.leave(roomId);
   });
 
-  // Отправка сообщения в чат
+  // Обработка отправки сообщений
   socket.on("chat-message", async (data) => {
     const { roomId, message, username, timestamp } = data;
     let room = await Room.findOne({ roomId });
@@ -80,8 +69,20 @@ io.on("connection", async (socket) => {
     }
   });
 
+  // Синхронизация времени видео
+  socket.on("sync-video-time", async ({ roomId, time }) => {
+    let room = await Room.findOne({ roomId });
+
+    if (room) {
+      room.videoTime = time;
+      await room.save();  // Сохраняем новое время видео
+      io.to(roomId).emit("video-time", time);  // Отправляем всем пользователям обновленное время видео
+    }
+  });
+
   // Отключение пользователя
   socket.on("disconnect", async () => {
+    // Очистка пользователей, которые отключились
     for (let roomId in rooms) {
       let room = await Room.findOne({ roomId });
       if (room) {
@@ -98,4 +99,3 @@ const port = process.env.PORT || 5001;
 server.listen(port, () => {
   console.log(`Сервер работает на порту ${port}`);
 });
-
