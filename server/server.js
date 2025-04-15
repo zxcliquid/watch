@@ -44,9 +44,9 @@ io.on("connection", async (socket) => {
       });
       await room.save();  // Сохраняем в базу данных
     } else {
-      // Если комната существует, добавляем пользователя
+      // Если комната существует, проверяем, есть ли пользователь
       const userExists = room.users.some(user => user.username === username);
-      
+
       if (!userExists) {
         room.users.push({ username, socketId: socket.id });
         await room.save();  // Обновляем данные в базе данных
@@ -54,12 +54,8 @@ io.on("connection", async (socket) => {
     }
 
     socket.join(roomId);  // Пользователь присоединился к комнате
-
-    // Отправляем обновленный список пользователей и историю чата сразу после подключения
-    io.to(roomId).emit("update-users", room.users);
-    socket.emit("chat-history", room.chat);  // Отправляем историю чата
-
-    console.log(`Пользователь ${username} присоединился к комнате ${roomId}`);
+    io.to(roomId).emit("update-users", room.users);  // Обновляем список пользователей
+    socket.emit("chat-history", room.chat);  // Отправляем историю чата сразу
   });
 
   // Обработка отправки сообщений
