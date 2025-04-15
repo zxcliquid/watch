@@ -44,19 +44,22 @@ io.on("connection", async (socket) => {
       });
       await room.save();  // Сохраняем в базу данных
     } else {
-      // Проверяем, существует ли пользователь в комнате
+      // Если комната существует, добавляем пользователя
       const userExists = room.users.some(user => user.username === username);
       
       if (!userExists) {
-        // Если пользователя нет, добавляем его в комнату
         room.users.push({ username, socketId: socket.id });
         await room.save();  // Обновляем данные в базе данных
       }
     }
 
     socket.join(roomId);  // Пользователь присоединился к комнате
-    io.to(roomId).emit("update-users", room.users);  // Обновляем список пользователей
+
+    // Отправляем обновленный список пользователей и историю чата сразу после подключения
+    io.to(roomId).emit("update-users", room.users);
     socket.emit("chat-history", room.chat);  // Отправляем историю чата
+
+    console.log(`Пользователь ${username} присоединился к комнате ${roomId}`);
   });
 
   // Обработка отправки сообщений
@@ -76,12 +79,12 @@ io.on("connection", async (socket) => {
     let room = await Room.findOne({ roomId });
 
     if (room) {
-      room.users = room.users.filter(user => user.socketId !== socket.id);  // Убираем пользователя из списка
-      await room.save();  // Обновляем данные в базе данных
+      room.users = room.users.filter(user => user.socketId !== socket.id);
+      await room.save();  // Обновляем список пользователей в базе данных
       io.to(roomId).emit("update-users", room.users);  // Обновляем список пользователей
     }
 
-    socket.leave(roomId);  // Отключаем пользователя от комнаты
+    socket.leave(roomId);
   });
 
   // Отключение пользователя
@@ -89,7 +92,7 @@ io.on("connection", async (socket) => {
     for (let roomId in rooms) {
       let room = await Room.findOne({ roomId });
       if (room) {
-        room.users = room.users.filter(user => user.socketId !== socket.id);  // Убираем пользователя из списка
+        room.users = room.users.filter(user => user.socketId !== socket.id);
         if (room.users.length === 0) {
           await Room.deleteOne({ roomId });  // Удаляем комнату, если в ней больше нет пользователей
         } else {
