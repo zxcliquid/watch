@@ -44,10 +44,11 @@ io.on("connection", async (socket) => {
       });
       await room.save();  // Сохраняем в базу данных
     } else {
-      // Если комната существует, проверяем, есть ли пользователь
+      // Проверяем, существует ли пользователь в комнате
       const userExists = room.users.some(user => user.username === username);
-
+      
       if (!userExists) {
+        // Если пользователя нет, добавляем его в комнату
         room.users.push({ username, socketId: socket.id });
         await room.save();  // Обновляем данные в базе данных
       }
@@ -55,7 +56,7 @@ io.on("connection", async (socket) => {
 
     socket.join(roomId);  // Пользователь присоединился к комнате
     io.to(roomId).emit("update-users", room.users);  // Обновляем список пользователей
-    socket.emit("chat-history", room.chat);  // Отправляем историю чата сразу
+    socket.emit("chat-history", room.chat);  // Отправляем историю чата
   });
 
   // Обработка отправки сообщений
@@ -75,12 +76,12 @@ io.on("connection", async (socket) => {
     let room = await Room.findOne({ roomId });
 
     if (room) {
-      room.users = room.users.filter(user => user.socketId !== socket.id);
-      await room.save();  // Обновляем список пользователей в базе данных
+      room.users = room.users.filter(user => user.socketId !== socket.id);  // Убираем пользователя из списка
+      await room.save();  // Обновляем данные в базе данных
       io.to(roomId).emit("update-users", room.users);  // Обновляем список пользователей
     }
 
-    socket.leave(roomId);
+    socket.leave(roomId);  // Отключаем пользователя от комнаты
   });
 
   // Отключение пользователя
@@ -88,7 +89,7 @@ io.on("connection", async (socket) => {
     for (let roomId in rooms) {
       let room = await Room.findOne({ roomId });
       if (room) {
-        room.users = room.users.filter(user => user.socketId !== socket.id);
+        room.users = room.users.filter(user => user.socketId !== socket.id);  // Убираем пользователя из списка
         if (room.users.length === 0) {
           await Room.deleteOne({ roomId });  // Удаляем комнату, если в ней больше нет пользователей
         } else {
