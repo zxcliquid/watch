@@ -31,66 +31,73 @@ mongoose.connect(dbURI)
 io.on("connection", async (socket) => {
   console.log("Новый пользователь подключился:", socket.id);
 
-  // Обработчик запроса истории чата
-  socket.on("get-chat-history", async ({ roomId }) => {
-    let room = await Room.findOne({ roomId });
-    if (room) {
-      socket.emit("chat-history", room.chat);
-    }
-  });
-
   // Подключение к комнате
   socket.on("join-room", async ({ roomId, username }) => {
     let room = await Room.findOne({ roomId });
 
     if (!room) {
-      // Если комнаты нет, создаем новую
+      // Если комнаты нет в базе данных, создаем новую
       room = new Room({
         roomId,
         users: [{ username, socketId: socket.id }],
         chat: []
       });
-      await room.save();
+      await room.save();  // Сохраняем в базу данных
     } else {
-      // Если комната существует, добавляем пользователя
-      room.users.push({ username, socketId: socket.id });
-      await room.save();
+      // Проверяем, существует ли пользователь в комнате
+      const userExists = room.users.some(user => user.username === username);
+      
+      if (!userExists) {
+        // Если пользователя нет, добавляем его в комнату
+        room.users.push({ username, socketId: socket.id });
+        await room.save();  // Обновляем данные в базе данных
+      }
     }
 
-    socket.join(roomId);
-    io.to(roomId).emit("update-users", room.users);
-    // Отправляем историю чата при подключении для тех, кто успевает
-    socket.emit("chat-history", room.chat);
+    socket.join(roomId);  // Пользователь присоединился к комнате
+    io.to(roomId).emit("update-users", room.users);  // Обновляем список пользователей
+    socket.emit("chat-history", room.chat);  // Отправляем историю чата
   });
 
   // Обработка отправки сообщений
   socket.on("chat-message", async (data) => {
     const { roomId, message, username, timestamp } = data;
     let room = await Room.findOne({ roomId });
+
     if (room) {
       room.chat.push({ username, message, timestamp });
-      await room.save();
-      io.to(roomId).emit("chat-message", { username, message, timestamp });
+      await room.save();  // Сохраняем сообщение в базе данных
+      io.to(roomId).emit("chat-message", { username, message, timestamp });  // Отправляем сообщение всем в комнате
     }
   });
 
   // Выход пользователя из комнаты
   socket.on("leave-room", async (roomId) => {
     let room = await Room.findOne({ roomId });
+
     if (room) {
-      room.users = room.users.filter(user => user.socketId !== socket.id);
-      await room.save();
-      io.to(roomId).emit("update-users", room.users);
+      room.users = room.users.filter(user => user.socketId !== socket.id);  // Убираем пользователя из списка
+      await room.save();  // Обновляем данные в базе данных
+      io.to(roomId).emit("update-users", room.users);  // Обновляем список пользователей
     }
-    socket.leave(roomId);
+
+    socket.leave(roomId);  // Отключаем пользователя от комнаты
   });
 
   // Отключение пользователя
   socket.on("disconnect", async () => {
-    // Если у вас реализована логика очистки пользователей, убедитесь, что используете корректную структуру.
-    // Здесь пример обхода комнат, в которых мог участвовать пользователь
-    // (обратите внимание: переменная "rooms" должна быть корректно определена; если её нет, возможно, стоит использовать другие методы)
-    // Для простоты можно пропустить очистку в disconnect, если она уже обрабатывается в leave-room.
+    for (let roomId in rooms) {
+      let room = await Room.findOne({ roomId });
+      if (room) {
+        room.users = room.users.filter(user => user.socketId !== socket.id);  // Убираем пользователя из списка
+        if (room.users.length === 0) {
+          await Room.deleteOne({ roomId });  // Удаляем комнату, если в ней больше нет пользователей
+        } else {
+          await room.save();  // Сохраняем изменения в базе данных
+        }
+        io.to(roomId).emit("update-users", room.users);  // Обновляем список пользователей
+      }
+    }
   });
 });
 
