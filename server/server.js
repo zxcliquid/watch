@@ -33,54 +33,40 @@ io.on("connection", (socket) => {
     }
   });
 
-// При смене видео
-socket.on("sync-video", async ({ roomId, action, time, videoId }) => {
-  if (videoId) {
-    // Сохраняем новый videoId в базе
-    const room = await Room.findOne({ roomId });
-    if (room) {
-      room.videoId = videoId;
-      room.videoTime = time || 0;
+  // Присоединение к комнате
+  socket.on("join-room", async ({ roomId, username }) => {
+    let room = await Room.findOne({ roomId });
+
+    if (!room) {
+      room = new Room({
+        roomId,
+        users: [{ username, socketId: socket.id }],
+        chat: [],
+        videoId: "dQw4w9WgXcQ", // по умолчанию
+        videoTime: 0
+      });
+      await room.save();
+    } else {
+      const userIndex = room.users.findIndex(user => user.username === username);
+      if (userIndex === -1) {
+        room.users.push({ username, socketId: socket.id });
+      } else {
+        room.users[userIndex].socketId = socket.id;
+      }
       await room.save();
     }
-  }
-  socket.to(roomId).emit("sync-video", { action, time, videoId });
-});
 
-// При подключении к комнате
-socket.on("join-room", async ({ roomId, username }) => {
-  let room = await Room.findOne({ roomId });
+    socket.join(roomId);
+    io.to(roomId).emit("update-users", room.users);
+    socket.emit("chat-history", room.chat);
 
-  if (!room) {
-    room = new Room({
-      roomId,
-      users: [{ username, socketId: socket.id }],
-      chat: [],
-      videoId: "dQw4w9WgXcQ",
-      videoTime: 0,
+    // Отправляем актуальное видео и время подключившемуся
+    socket.emit("sync-video", {
+      action: "pause",
+      time: room.videoTime || 0,
+      videoId: room.videoId || "dQw4w9WgXcQ"
     });
-    await room.save();
-  } else {
-    const userIndex = room.users.findIndex(user => user.username === username);
-    if (userIndex === -1) {
-      room.users.push({ username, socketId: socket.id });
-    } else {
-      room.users[userIndex].socketId = socket.id;
-    }
-    await room.save();
-  }
-
-  socket.join(roomId);
-  io.to(roomId).emit("update-users", room.users);
-  socket.emit("chat-history", room.chat);
-
-  // Отправляем актуальное видео и время только подключившемуся
-  socket.emit("sync-video", {
-    action: "pause",
-    time: room.videoTime || 0,
-    videoId: room.videoId || "dQw4w9WgXcQ"
   });
-});
 
   // Сообщения чата
   socket.on("chat-message", async (data) => {
@@ -94,8 +80,16 @@ socket.on("join-room", async ({ roomId, username }) => {
   });
 
   // Синхронизация видео
-  socket.on("sync-video", ({ roomId, action, time, videoId }) => {
-    // Ретранслируем всем, кроме отправителя
+  socket.on("sync-video", async ({ roomId, action, time, videoId }) => {
+    if (videoId) {
+      const room = await Room.findOne({ roomId });
+      if (room) {
+        room.videoId = videoId;
+        room.videoTime = time || 0;
+        await room.save();
+      }
+    }
+
     socket.to(roomId).emit("sync-video", { action, time, videoId });
   });
 
@@ -112,7 +106,6 @@ socket.on("join-room", async ({ roomId, username }) => {
 
   // Отключение пользователя
   socket.on("disconnect", async () => {
-    // Удаляем пользователя из всех комнат, где он был
     const rooms = await Room.find({ "users.socketId": socket.id });
     for (const room of rooms) {
       room.users = room.users.filter(user => user.socketId !== socket.id);
