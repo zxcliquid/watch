@@ -33,33 +33,54 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Присоединение к комнате
-  socket.on("join-room", async ({ roomId, username }) => {
-    let room = await Room.findOne({ roomId });
-
-    if (!room) {
-      room = new Room({
-        roomId,
-        users: [{ username, socketId: socket.id }],
-        chat: []
-      });
-      await room.save();
-    } else {
-      // Проверяем, есть ли уже пользователь с таким username
-      const userIndex = room.users.findIndex(user => user.username === username);
-      if (userIndex === -1) {
-        room.users.push({ username, socketId: socket.id });
-      } else {
-        // Обновляем socketId
-        room.users[userIndex].socketId = socket.id;
-      }
+// При смене видео
+socket.on("sync-video", async ({ roomId, action, time, videoId }) => {
+  if (videoId) {
+    // Сохраняем новый videoId в базе
+    const room = await Room.findOne({ roomId });
+    if (room) {
+      room.videoId = videoId;
+      room.videoTime = time || 0;
       await room.save();
     }
+  }
+  socket.to(roomId).emit("sync-video", { action, time, videoId });
+});
 
-    socket.join(roomId);
-    io.to(roomId).emit("update-users", room.users);
-    socket.emit("chat-history", room.chat);
+// При подключении к комнате
+socket.on("join-room", async ({ roomId, username }) => {
+  let room = await Room.findOne({ roomId });
+
+  if (!room) {
+    room = new Room({
+      roomId,
+      users: [{ username, socketId: socket.id }],
+      chat: [],
+      videoId: "dQw4w9WgXcQ",
+      videoTime: 0,
+    });
+    await room.save();
+  } else {
+    const userIndex = room.users.findIndex(user => user.username === username);
+    if (userIndex === -1) {
+      room.users.push({ username, socketId: socket.id });
+    } else {
+      room.users[userIndex].socketId = socket.id;
+    }
+    await room.save();
+  }
+
+  socket.join(roomId);
+  io.to(roomId).emit("update-users", room.users);
+  socket.emit("chat-history", room.chat);
+
+  // Отправляем актуальное видео и время только подключившемуся
+  socket.emit("sync-video", {
+    action: "pause",
+    time: room.videoTime || 0,
+    videoId: room.videoId || "dQw4w9WgXcQ"
   });
+});
 
   // Сообщения чата
   socket.on("chat-message", async (data) => {
