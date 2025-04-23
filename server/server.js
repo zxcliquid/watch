@@ -19,7 +19,7 @@ const io = socketIo(server, {
 
 const dbURI = process.env.MONGO_URI || 'mongodb+srv://daniyar:0000@cluster0.j1faecs.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
 mongoose.connect(dbURI)
-  .then(() => console.log('Подключение к MongoDB успешно!'))
+  .then(() => console.log('Подключение к MongoDB успешно!!!'))
   .catch((err) => console.log('Ошибка подключения к MongoDB:', err));
 
 io.on("connection", (socket) => {
