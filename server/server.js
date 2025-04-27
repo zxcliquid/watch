@@ -83,19 +83,18 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Синхронизация видео
-  socket.on("sync-video", async ({ roomId, action, time, videoId }) => {
-    if (videoId) {
-      const room = await Room.findOne({ roomId });
-      if (room) {
-        room.videoId = videoId;
-        room.videoTime = time || 0;
-        await room.save();
-      }
+  // Синхронизация видео (YouTube)
+socket.on("sync-video", async ({ roomId, action, time, videoId }) => {
+  if (videoId) {
+    const room = await Room.findOne({ roomId });
+    if (room) {
+      room.videoId = videoId;
+      room.videoTime = time || 0;
+      await room.save();
     }
-
-    socket.to(roomId).emit("sync-video", { action, time, videoId });
-  });
+  }
+  socket.to(roomId).emit("sync-video", { action, time, videoId });
+});
 
 
   // Twitch: синхронизация play/pause
