@@ -19,7 +19,7 @@ const io = socketIo(server, {
 
 const dbURI = process.env.MONGO_URI || 'mongodb+srv://daniyar:0000@cluster0.j1faecs.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
 mongoose.connect(dbURI)
-  .then(() => console.log('Подключение к MongoDB успешно!!!'))
+  .then(() => console.log('Подключение к MongoDB успешно!'))
   .catch((err) => console.log('Ошибка подключения к MongoDB:', err));
 
 io.on("connection", (socket) => {
@@ -43,9 +43,7 @@ io.on("connection", (socket) => {
         users: [{ username, socketId: socket.id }],
         chat: [],
         videoId: "dQw4w9WgXcQ", // по умолчанию
-        videoTime: 0,
-        playerType: "youtube", // добавлено
-        twitchChannel: "",     // добавлено
+        videoTime: 0
       });
       await room.save();
     } else {
@@ -66,9 +64,7 @@ io.on("connection", (socket) => {
     socket.emit("sync-video", {
       action: "pause",
       time: room.videoTime || 0,
-      videoId: room.videoId || "dQw4w9WgXcQ",
-      twitchChannel: room.twitchChannel || "",
-      time: room.videoTime || 0,
+      videoId: room.videoId || "dQw4w9WgXcQ"
     });
   });
 
@@ -83,24 +79,19 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Синхронизация видео (YouTube)
-socket.on("sync-video", async ({ roomId, action, time, videoId }) => {
-  if (videoId) {
-    const room = await Room.findOne({ roomId });
-    if (room) {
-      room.videoId = videoId;
-      room.videoTime = time || 0;
-      await room.save();
+  // Синхронизация видео
+  socket.on("sync-video", async ({ roomId, action, time, videoId }) => {
+    if (videoId) {
+      const room = await Room.findOne({ roomId });
+      if (room) {
+        room.videoId = videoId;
+        room.videoTime = time || 0;
+        await room.save();
+      }
     }
-  }
-  socket.to(roomId).emit("sync-video", { action, time, videoId });
-});
 
-
-  // Twitch: синхронизация play/pause
-socket.on("sync-twitch", async ({ roomId, action }) => {
-  socket.to(roomId).emit("sync-twitch", { action });
-});
+    socket.to(roomId).emit("sync-video", { action, time, videoId });
+  });
 
   // Выход из комнаты
   socket.on("leave-room", async (roomId) => {
@@ -122,26 +113,6 @@ socket.on("sync-twitch", async ({ roomId, action }) => {
       io.to(room.roomId).emit("update-users", room.users);
     }
   });
-});
-
-// Переключение плеера
-socket.on("switch-player", async ({ roomId, playerType, videoId, twitchChannel }) => {
-  const room = await Room.findOne({ roomId });
-  if (room) {
-    room.playerType = playerType;
-    if (playerType === "youtube") {
-      room.videoId = videoId || "dQw4w9WgXcQ";
-    } else if (playerType === "twitch") {
-      room.twitchChannel = twitchChannel || "";
-    }
-    await room.save();
-    io.to(roomId).emit("sync-player", {
-      playerType,
-      videoId: room.videoId,
-      twitchChannel: room.twitchChannel,
-      time: room.videoTime || 0,
-    });
-  }
 });
 
 const port = process.env.PORT || 5001;
