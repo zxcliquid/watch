@@ -12,8 +12,6 @@ const roomSchema = new mongoose.Schema({
   ],
   videoId: { type: String, default: "dQw4w9WgXcQ" }, // <--- добавьте это!
   videoTime: { type: Number, default: 0 },
-  playerType: { type: String, default: "youtube" },
-  twitchChannel: { type: String, default: "" }
 });
 
 const Room = mongoose.model('Room', roomSchema);
