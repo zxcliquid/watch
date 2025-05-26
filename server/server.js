@@ -7,7 +7,6 @@ const cronJobs = require('./cronJobs');
 
 const app = express();
 const server = http.createServer(app);
-
 const io = socketIo(server, {
   cors: {
     origin: [
