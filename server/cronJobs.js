@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const Room = require('./Room.js'); 
+const Room = require('./models/Room.js'); 
 
 cron.schedule('0 0 * * *', async () => {  
   try {
