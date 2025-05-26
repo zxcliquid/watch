@@ -12,8 +12,7 @@ const io = socketIo(server, {
   cors: {
     origin: [
       "https://watch-frontend-liard.vercel.app",
-      "http://localhost:5173",
-      "https://step-education-beta.vercel.app"
+      "http://localhost:5173"
     ],
     methods: ["GET", "POST"]
   }
