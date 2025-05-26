@@ -10,7 +10,7 @@ const roomSchema = new mongoose.Schema({
       timestamp: String,
     },
   ],
-  videoId: { type: String, default: "dQw4w9WgXcQ" }, // <--- добавьте это!
+  videoId: { type: String, default: "dQw4w9WgXcQ" }, 
   videoTime: { type: Number, default: 0 },
 });
 

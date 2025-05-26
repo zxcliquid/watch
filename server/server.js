@@ -3,6 +3,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const mongoose = require('mongoose');
 const Room = require('./models/Room');
+const cronJobs = require('./cronJobs');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,7 +12,8 @@ const io = socketIo(server, {
   cors: {
     origin: [
       "https://watch-frontend-liard.vercel.app",
-      "http://localhost:5173"
+      "http://localhost:5173",
+      "https://step-education-beta.vercel.app"
     ],
     methods: ["GET", "POST"]
   }
